@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亦行 成長時光機：月齡猜謎 (GitHub Pages)</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 使用 Inter 字體 -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f8ff; /* 淺藍色背景 */
+            color: #1a365d; /* 深藍色文字 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 420px; /* 手機螢幕寬度 */
+            padding: 1rem;
+        }
+        .dashboard-container {
+            max-width: 800px; /* 儀表板寬度 */
+        }
+        /* 主題顏色 */
+        .theme-blue {
+            background-color: #007ACC;
+        }
+        .theme-blue-text {
+            color: #007ACC;
+        }
+        .theme-blue-hover:hover {
+            background-color: #005a99;
+        }
+        /* 按鈕基礎樣式 (月齡按鈕) */
+        #months-old-buttons button {
+            background-color: #e6f0ff; /* 淺淺的藍色 */
+            color: #007ACC;
+            border: 2px solid #b3d9ff;
+            transition: all 0.2s ease-in-out;
+            font-weight: 700;
+        }
+        /* 選中狀態樣式 */
+        #months-old-buttons button.selected {
+            background-color: #007ACC;
+            color: white;
+            border-color: #005a99;
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 122, 204, 0.4);
+        }
+        .confetti-icon {
+            display: inline-block;
+            margin: 0 8px;
+            font-size: 1.2em;
+            animation: bounce 1s infinite alternate;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+        /* 猜測分佈圖的樣式 */
+        .chart-bar-container {
+            background-color: #e2e8f0;
+            height: 20px;
+        }
+        .chart-bar-fill {
+            transition: width 1s ease-out;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-app" class="container mx-auto">
+        <h1 class="text-3xl font-extrabold text-center my-6 theme-blue-text">
+            <span class="confetti-icon">🎂</span> 亦行 成長時光機 <span class="confetti-icon">🎈</span>
+        </h1>
+
+        <!-- 登入資訊 (所有用戶都顯示) -->
+        <div id="auth-status" class="text-xs text-center p-3 mb-4 bg-white rounded-xl shadow-md border border-blue-100">
+            <p><strong>您的玩家 ID:</strong> <span id="user-id-display" class="font-mono text-gray-600">正在連接...</span></p>
+            <p class="mt-1">
+                <strong>您的名稱:</strong> <span id="player-name-display" class="font-bold theme-blue-text">未設定</span>
+            </p>
+        </div>
+
+        <!-- 模式切換按鈕 -->
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="switch-to-player" class="px-4 py-2 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-600 transition duration-150">
+                玩家猜謎模式
+            </button>
+            <button id="switch-to-dashboard" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-xl shadow-lg hover:bg-gray-400 transition duration-150">
+                查看結果儀表板 (Host)
+            </button>
+        </div>
+
+        <!-- 1. 玩家猜謎介面 (手機專用) -->
+        <div id="player-view" class="hidden">
+            <!-- 玩家姓名輸入 -->
+            <div id="name-input-section" class="bg-white p-6 rounded-3xl shadow-2xl mb-6 border-t-4 border-blue-500">
+                <h2 class="text-2xl font-bold text-center mb-4 theme-blue-text">
+                    輸入您的名稱
+                </h2>
+                <label for="player-name-input" class="block text-sm font-medium mb-2 text-gray-700">
+                    請輸入您的名稱 (例如：John / Mary)
+                </label>
+                <input type="text" id="player-name-input" placeholder="名稱 (最多15字)" maxlength="15"
+                       class="w-full p-3 border-2 border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition">
+                <button id="set-player-name" disabled
+                        class="w-full mt-4 py-3 theme-blue text-white font-bold rounded-xl shadow-lg theme-blue-hover transition duration-200 disabled:opacity-50">
+                    確認名稱並開始遊戲
+                </button>
+            </div>
+
+
+            <div id="game-content" class="hidden bg-white p-6 rounded-3xl shadow-2xl mb-6">
+
+                <!-- 提示/訊息框 -->
+                <div id="message-box" class="hidden p-3 mb-4 text-sm rounded-xl"></div>
+
+                <!-- 題目顯示 (已移除計時器) -->
+                <div class="flex justify-center items-center mb-4 border-b pb-2 border-blue-100">
+                    <h2 class="text-xl font-semibold theme-blue-text">
+                        正在猜測第 <span id="current-photo-index" class="text-2xl font-extrabold">1</span> 題
+                    </h2>
+                </div>
+
+                <!-- 照片顯示區 (使用佔位圖模擬) -->
+                <div class="aspect-square bg-gray-200 rounded-xl overflow-hidden mb-6 shadow-xl flex items-center justify-center border-4 border-white">
+                    <img id="photo-display" src="" alt="小朋友的照片" class="w-full h-full object-cover">
+                </div>
+
+                <!-- 猜測輸入按鈕 -->
+                <div id="guess-form-content">
+                    <label class="block text-base font-bold mb-3 text-gray-700">
+                        請點選當時的月齡 (0-12 個月大，共 13 個選項)
+                    </label>
+                    <div id="months-old-buttons" class="grid grid-cols-4 gap-3 mb-6">
+                        <!-- 月齡按鈕將在此處生成 -->
+                    </div>
+
+                    <button id="submit-guess" disabled
+                        class="w-full py-3 bg-green-500 text-white font-bold rounded-xl shadow-lg hover:bg-green-600 transition duration-200 disabled:opacity-50">
+                        提交猜測 (第 1 題)
+                    </button>
+                    <!-- 下一張按鈕在提交成功後顯示 -->
+                    <button id="next-photo" disabled
+                        class="hidden w-full py-3 mt-4 theme-blue text-white font-bold rounded-xl shadow-lg theme-blue-hover transition duration-200 disabled:opacity-50">
+                        下一張照片
+                    </button>
+                </div>
+
+                <!-- 最終提交狀態 -->
+                <div id="final-submit-message" class="hidden text-center mt-6 p-6 bg-yellow-50 rounded-xl border-2 border-yellow-300">
+                    <p class="text-xl font-bold text-yellow-700 mb-2">🎉 您已完成所有 13 張照片的猜謎！</p>
+                    <p class="text-gray-600">您的猜測已儲存。等待主持人公佈最終結果。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 結果儀表板介面 (大螢幕專用) -->
+        <div id="dashboard-view" class="hidden w-full dashboard-container mx-auto">
+            <h2 class="text-3xl font-extrabold text-center my-4 theme-blue-text">
+                🎂 遊戲結果儀表板 (Host) 🎈
+            </h2>
+
+            <!-- 主持人控制區 -->
+            <div class="bg-white p-6 rounded-3xl shadow-2xl mb-8 border-t-4 border-red-500">
+                <h3 class="text-xl font-bold mb-3 text-red-600">主持人控制</h3>
+                <button id="reveal-results" class="w-full py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg hover:bg-red-600 transition duration-200 disabled:opacity-50">
+                    公佈最終結果與分數 (請在所有玩家完成後點擊)
+                </button>
+            </div>
+            
+            <!-- 玩家提交狀態 -->
+            <div class="bg-white p-6 rounded-3xl shadow-2xl mb-8 border-t-4 border-blue-500">
+                <h3 class="text-xl font-bold mb-3 theme-blue-text">
+                    玩家提交狀態 (<span id="submitted-count">0</span> / <span id="total-players">0</span>)
+                </h3>
+                <ul id="submission-status-list" class="space-y-3 text-sm">
+                    <li class="text-gray-500 p-2">等待玩家提交數據...</li>
+                </ul>
+            </div>
+
+            <!-- 最終排行榜 -->
+            <div id="leaderboard-section" class="hidden bg-white p-6 rounded-3xl shadow-2xl mb-8 border-t-4 border-yellow-500">
+                <h3 class="text-2xl font-extrabold text-center mb-4 text-yellow-700">
+                    🥇 最終排行榜 🥈
+                </h3>
+                <ol id="leaderboard-list" class="space-y-3">
+                    <!-- 排行榜將在此處更新 -->
+                </ol>
+            </div>
+
+            <!-- 照片詳細分析區 -->
+            <div id="photo-analysis-section" class="hidden bg-white p-6 rounded-3xl shadow-2xl mb-8 border-t-4 border-green-500">
+                <h3 class="text-2xl font-extrabold text-center mb-6 text-green-700">
+                    📊 照片猜測詳細分析 📈
+                </h3>
+                <div id="analysis-charts-container" class="space-y-8">
+                    <!-- 詳細分析圖表將在此處生成 -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 載入中的提示 -->
+        <div id="loading" class="text-center text-gray-500 mt-12">
+            <svg class="animate-spin h-5 w-5 mr-3 inline-block theme-blue-text" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            正在初始化 Firebase...
+        </div>
+    </div>
+
+    <!-- Firebase 模組載入 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, runTransaction, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ---------------------------------------------------------------------------------
+        // 🚨🚨🚨 請務必將以下 firebaseConfig 替換為您自己的 Firebase 專案配置！ 🚨🚨🚨
+        // ---------------------------------------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyANe0qEK8HGBjKamRnNTEIwlpGxNXGwdM0",
+            authDomain: "jalen-bday-game.firebaseapp.com",
+            projectId: "jalen-bday-game",
+            storageBucket: "jalen-bday-game.firebasestorage.app",
+            messagingSenderId: "23685383150",
+            appId: "1:23685383150:web:abb676397bd43c4378c4ff",
+            measurementId: "G-LJDHKDGJ1M"
+        };
+        // ---------------------------------------------------------------------------------
+        
+        const appId = firebaseConfig.projectId; // 在 GitHub Pages 環境下，使用 Project ID 作為 app ID
+        let db, auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        setLogLevel('debug'); // 開啟 Firestore 偵錯日誌
+
+        // 遊戲核心數據 (更新為 13 張照片)
+        const GAME_ID = "photo_guess_session_2025_v4";
+        const TOTAL_PHOTOS = 13; // 總共 13 張照片 (0M 到 12M)
+
+        // 所有照片數據 (ID 1-13)
+        // **請記得將這些佔位符 URL 替換為實際的照片 URL**
+        const MOCK_PHOTOS = [
+            // 0 個月大 (剛出生)
+            { id: 1, url: "https://placehold.co/300x400/FFD1DC/CC0066?text=亦行+0+個月+(剛出生)", correctMonthsOld: 0 },
+            // 1 到 12 個月大
+            { id: 2, url: "https://placehold.co/300x400/99CCFF/007ACC?text=亦行+1+個月", correctMonthsOld: 1 },
+            { id: 3, url: "https://placehold.co/300x400/B2E0FF/1a365d?text=亦行+2+個月", correctMonthsOld: 2 },
+            { id: 4, url: "https://placehold.co/300x400/CCE5FF/007ACC?text=亦行+3+個月", correctMonthsOld: 3 },
+            { id: 5, url: "https://placehold.co/300x400/E6F5FF/007ACC?text=亦行+4+個月", correctMonthsOld: 4 },
+            { id: 6, url: "https://placehold.co/300x400/80BFFF/007ACC?text=亦行+5+個月", correctMonthsOld: 5 },
+            { id: 7, url: "https://placehold.co/300x400/66B2FF/007ACC?text=亦行+6+個月", correctMonthsOld: 6 },
+            { id: 8, url: "https://placehold.co/300x400/4DA6FF/007ACC?text=亦行+7+個月", correctMonthsOld: 7 },
+            { id: 9, url: "https://placehold.co/300x400/3399FF/007ACC?text=亦行+8+個月", correctMonthsOld: 8 },
+            { id: 10, url: "https://placehold.co/300x400/1A8CFF/007ACC?text=亦行+9+個月", correctMonthsOld: 9 },
+            { id: 11, url: "https://placehold.co/300x400/007ACC/FFFFFF?text=亦行+10+個月", correctMonthsOld: 10 },
+            { id: 12, url: "https://placehold.co/300x400/0066CC/FFFFFF?text=亦行+11+個月", correctMonthsOld: 11 },
+            { id: 13, url: "https://placehold.co/300x400/004C99/FFFFFF?text=亦行+12+個月", correctMonthsOld: 12 } 
+        ];
+
+        // UI 元素
+        const $ = (id) => document.getElementById(id);
+
+        // 玩家狀態
+        let currentPhotoIndex = 0; 
+        let playerGuesses = [];
+        let playerName = '';
+        let dashboardData = {};
+        let gameStatus = { revealed: false, sessionName: '', answers: [] }; 
+        let currentMonthOldGuess = null; 
+        let playerSequence = []; 
+
+        // -------------------------
+        // 2. 實用工具函數
+        // -------------------------
+
+        // 費雪-耶茨洗牌算法
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[i], array[j]];
+            }
+            return array;
+        }
+
+
+        // -------------------------
+        // 3. Firebase 初始化與認證
+        // -------------------------
+
+        async function initFirebase() {
+            // 檢查配置是否已被替換
+            if (firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
+                $('loading').textContent = "🚨 Firebase 配置錯誤：請替換程式碼中的佔位符。";
+                return;
+            }
+        
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // 在外部部署環境，使用匿名登入
+                await signInAnonymously(auth); 
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        $('loading').classList.add('hidden');
+                        $('user-id-display').textContent = userId;
+                        switchView('player');
+                        setupGameListeners();
+                    } else {
+                        console.error("Authentication failed.");
+                        $('loading').textContent = "Firebase 認證失敗，請檢查專案設定。";
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase 初始化失敗:", error);
+                $('loading').textContent = "Firebase 錯誤，請檢查配置。";
+            }
+        }
+
+        // -------------------------
+        // 4. Firestore 數據路徑與操作
+        // -------------------------
+
+        // 設置 Firestore 公共數據路徑 (所有玩家共享)
+        const getPublicDocRef = (docId) => doc(db, 'artifacts', appId, 'public', 'data', 'birthday_guesses', docId);
+
+        // 獲取並設置遊戲狀態 (包含正確答案和是否已公佈)
+        async function setupGameSession() {
+            if (!isAuthReady) return;
+
+            try {
+                const sessionRef = getPublicDocRef(GAME_ID);
+                const sessionSnap = await getDoc(sessionRef);
+
+                if (!sessionSnap.exists()) {
+                    // 如果不存在，則創建包含正確答案的初始會話 (按 ID 順序 1-13)
+                    gameStatus = {
+                        revealed: false,
+                        sessionName: '亦行 成長時光機',
+                        answers: MOCK_PHOTOS.map(p => ({
+                            id: p.id,
+                            monthsOld: p.correctMonthsOld 
+                        }))
+                    };
+                    await setDoc(sessionRef, gameStatus);
+                    console.log("已創建新的遊戲會話。");
+                } else {
+                    gameStatus = sessionSnap.data();
+                }
+            } catch (e) {
+                console.error("設定遊戲會話失敗:", e);
+            }
+        }
+
+        // 監聽遊戲狀態變化
+        function listenToGameStatus() {
+            if (!isAuthReady) return;
+
+            const sessionRef = getPublicDocRef(GAME_ID);
+            onSnapshot(sessionRef, (doc) => {
+                if (doc.exists()) {
+                    const newStatus = doc.data();
+                    const wasRevealed = gameStatus.revealed;
+                    gameStatus = newStatus;
+                    
+                    if (gameStatus.revealed && !wasRevealed) {
+                        updateDashboardLeaderboard();
+                        updatePlayerViewAfterReveal();
+                        $('reveal-results').disabled = true;
+                        $('reveal-results').textContent = '結果已公佈';
+                        $('photo-analysis-section').classList.remove('hidden');
+                        renderPhotoAnalysis();
+                    }
+                }
+            }, (error) => {
+                console.error("監聽遊戲狀態失敗:", error);
+            });
+        }
+
+        // 監聽所有玩家的猜測
+        function listenToPlayerGuesses() {
+            if (!isAuthReady) return;
+
+            const guessesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'birthday_guesses', GAME_ID, 'guesses');
+            onSnapshot(guessesCollectionRef, (snapshot) => {
+                dashboardData = {};
+                snapshot.forEach(doc => {
+                    dashboardData[doc.id] = doc.data();
+                });
+                updateDashboardStatus();
+            }, (error) => {
+                console.error("監聽玩家猜測失敗:", error);
+            });
+        }
+
+        // 提交玩家的猜測和名稱到 Firestore
+        async function submitGuess(index, monthsOld, customMessage) {
+            if (!isAuthReady || !userId || !playerName) return;
+
+            const guessDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'birthday_guesses', GAME_ID, 'guesses', userId);
+
+            // 確保 playerGuesses 數組長度足夠
+            while (playerGuesses.length < TOTAL_PHOTOS) {
+                playerGuesses.push({ monthsOld: null });
+            }
+
+            // 更新當前照片的猜測 (存儲在序列的位置上)
+            // monthsOld 可以是 0
+            playerGuesses[index] = { 
+                monthsOld: monthsOld !== null ? parseInt(monthsOld) : null 
+            };
+
+            try {
+                await setDoc(guessDocRef, {
+                    userId: userId,
+                    name: playerName, // 儲存玩家名稱
+                    photoSequence: playerSequence, // 儲存玩家的獨有序列
+                    guesses: playerGuesses,
+                    completed: playerGuesses.filter(g => g.monthsOld !== null).length === TOTAL_PHOTOS,
+                    timestamp: new Date()
+                }, { merge: true });
+
+                console.log(`第 ${index + 1} 題的猜測已提交。`);
+                if (customMessage) showMessage(customMessage, 'bg-green-100 text-green-700 border border-green-300');
+            } catch (e) {
+                console.error("提交猜測失敗:", e);
+                showMessage("提交失敗，請重試。", 'bg-red-100 text-red-700 border border-red-300');
+            }
+        }
+
+        // -------------------------
+        // 5. 遊戲邏輯與 UI 處理
+        // -------------------------
+
+        function setupGameListeners() {
+            if (!isAuthReady) return;
+
+            setupGameSession();
+            listenToGameStatus();
+            listenToPlayerGuesses();
+
+            // UI 事件監聽器
+            $('switch-to-player').addEventListener('click', () => switchView('player'));
+            $('switch-to-dashboard').addEventListener('click', () => switchView('dashboard'));
+            $('submit-guess').addEventListener('click', handleGuessSubmission);
+            $('next-photo').addEventListener('click', handleNextPhoto);
+            $('reveal-results').addEventListener('click', revealGameResults);
+            
+            // 姓名設置事件
+            $('player-name-input').addEventListener('input', (e) => {
+                $('set-player-name').disabled = e.target.value.trim().length === 0;
+            });
+            $('set-player-name').addEventListener('click', setPlayerName);
+
+
+            loadPlayerState();
+            renderPlayerView();
+        }
+        
+        // 設置玩家名稱
+        async function setPlayerName() {
+            const name = $('player-name-input').value.trim();
+            if (name) {
+                playerName = name;
+                $('player-name-display').textContent = playerName;
+                $('name-input-section').classList.add('hidden');
+                $('game-content').classList.remove('hidden');
+                showMessage(`歡迎，${playerName}！遊戲開始。`, 'bg-blue-100 text-blue-700 border border-blue-300');
+                
+                // 首次設置名稱時，需要確保序列存在並儲存
+                const guessDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'birthday_guesses', GAME_ID, 'guesses', userId);
+                
+                // 如果序列還沒生成，則生成並儲存 (IDs 從 1 到 13)
+                if (playerSequence.length === 0) {
+                    const initialIds = Array.from({ length: TOTAL_PHOTOS }, (_, i) => i + 1); 
+                    playerSequence = shuffleArray(initialIds);
+                }
+
+                 await setDoc(guessDocRef, {
+                    userId: userId,
+                    name: playerName,
+                    photoSequence: playerSequence, // 儲存序列
+                    timestamp: new Date()
+                }, { merge: true });
+
+                // 名稱設定完成後，開始遊戲流程
+                renderPlayerView();
+            }
+        }
+
+        // 切換介面模式
+        function switchView(mode) {
+            $('switch-to-player').classList.toggle('bg-blue-500', mode === 'player');
+            $('switch-to-player').classList.toggle('bg-gray-300', mode !== 'player');
+            $('switch-to-player').classList.toggle('text-white', mode === 'player');
+            $('switch-to-player').classList.toggle('text-gray-800', mode !== 'player');
+            
+            $('switch-to-dashboard').classList.toggle('bg-blue-500', mode === 'dashboard');
+            $('switch-to-dashboard').classList.toggle('bg-gray-300', mode !== 'dashboard');
+            $('switch-to-dashboard').classList.toggle('text-white', mode === 'dashboard');
+            $('switch-to-dashboard').classList.toggle('text-gray-800', mode !== 'dashboard');
+            
+            $('player-view').classList.toggle('hidden', mode !== 'player');
+            $('dashboard-view').classList.toggle('hidden', mode !== 'dashboard');
+            
+            const mainContainer = document.querySelector('.container');
+            if (mode === 'dashboard') {
+                mainContainer.classList.remove('max-w-[420px]');
+                mainContainer.classList.add('dashboard-container');
+                // 如果已經公佈結果，重新渲染分析
+                if (gameStatus.revealed) {
+                    renderPhotoAnalysis();
+                }
+            } else {
+                mainContainer.classList.add('max-w-[420px]');
+                mainContainer.classList.remove('dashboard-container');
+            }
+        }
+
+        // 顯示通知訊息
+        function showMessage(text, className) {
+            const msgBox = $('message-box');
+            msgBox.textContent = text;
+            msgBox.className = `p-3 mb-4 text-sm rounded-xl shadow-inner ${className}`;
+            msgBox.classList.remove('hidden');
+            setTimeout(() => msgBox.classList.add('hidden'), 3000);
+        }
+
+        // 載入玩家先前提交的猜測數據和名稱
+        async function loadPlayerState() {
+            if (!isAuthReady || !userId) return;
+
+            const guessDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'birthday_guesses', GAME_ID, 'guesses', userId);
+            try {
+                const snap = await getDoc(guessDocRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    playerGuesses = data.guesses || [];
+                    playerName = data.name || '';
+                    playerSequence = data.photoSequence || []; // 載入序列
+                }
+                
+                // 如果序列遺失，生成一個新的 (IDs 1-13)
+                if (playerSequence.length === 0) {
+                    const initialIds = Array.from({ length: TOTAL_PHOTOS }, (_, i) => i + 1); 
+                    playerSequence = shuffleArray(initialIds);
+                    
+                    if (playerName) { // 只有在有名稱時才嘗試儲存
+                         await setDoc(guessDocRef, {
+                            photoSequence: playerSequence
+                        }, { merge: true });
+                    }
+                }
+                
+                $('player-name-display').textContent = playerName || '未設定';
+
+                if (playerName) {
+                    $('name-input-section').classList.add('hidden');
+                    $('game-content').classList.remove('hidden');
+                    // 找到下一張未猜的照片在序列中的位置
+                    currentPhotoIndex = playerGuesses.findIndex(g => g.monthsOld === null)
+                    if (currentPhotoIndex === -1) {
+                        currentPhotoIndex = TOTAL_PHOTOS; // 如果都猜完了
+                        $('final-submit-message').classList.remove('hidden');
+                        $('guess-form-content').classList.add('hidden'); 
+                    } else {
+                         $('final-submit-message').classList.add('hidden');
+                         $('guess-form-content').classList.remove('hidden');
+                    }
+                } else {
+                    $('name-input-section').classList.remove('hidden');
+                    $('game-content').classList.add('hidden');
+                }
+                
+                renderPlayerView();
+
+            } catch (e) {
+                console.error("載入玩家狀態失敗:", e);
+            }
+        }
+        
+        // 處理月齡按鈕點擊
+        function selectMonthOld(months) {
+            // months 可以是 0
+            currentMonthOldGuess = months;
+            
+            // 凸顯選中的按鈕並取消其他按鈕的凸顯
+            for (let i = 0; i <= 12; i++) { // 循環從 0 到 12
+                const btn = $(`month-btn-${i}`);
+                if (btn) {
+                    if (i === months) {
+                        btn.classList.add('selected');
+                    } else {
+                        btn.classList.remove('selected');
+                    }
+                }
+            }
+            
+            // 只有在未提交答案時，才啟用提交按鈕
+            const currentGuess = playerGuesses[currentPhotoIndex];
+            if (!(currentGuess && currentGuess.monthsOld !== null)) {
+                $('submit-guess').disabled = false; 
+            }
+        }
+
+        // 渲染玩家介面
+        function renderPlayerView() {
+            if (!playerName || playerSequence.length === 0) {
+                return; 
+            }
+
+            if (currentPhotoIndex >= TOTAL_PHOTOS) {
+                // 已完成所有照片
+                $('current-photo-index').textContent = TOTAL_PHOTOS;
+                // 顯示最後一張照片 (根據序列)
+                const finalPhotoId = playerSequence[TOTAL_PHOTOS - 1];
+                const finalPhoto = MOCK_PHOTOS.find(p => p.id === finalPhotoId);
+                $('photo-display').src = finalPhoto ? finalPhoto.url : '';
+                
+                $('final-submit-message').classList.remove('hidden');
+                $('guess-form-content').classList.add('hidden');
+                return;
+            }
+            
+            // 根據序列位置獲取照片 ID
+            const photoIdToDisplay = playerSequence[currentPhotoIndex];
+            // 在 MOCK_PHOTOS 中找到對應的照片數據 (MOCK_PHOTOS ID 從 1 到 13)
+            const photo = MOCK_PHOTOS.find(p => p.id === photoIdToDisplay);
+            
+            if (!photo) {
+                console.error("錯誤：找不到照片 ID " + photoIdToDisplay);
+                return;
+            }
+            
+            // UI 顯示的是序列中的位置 (第幾題)
+            $('current-photo-index').textContent = currentPhotoIndex + 1; 
+            // 如果圖片載入失敗，會顯示 alt text (佔位符文字)
+            $('photo-display').src = photo.url; 
+            $('photo-display').onerror = function() {
+                this.src = "https://placehold.co/300x400/FFCCCC/CC0000?text=圖片載入失敗"; // 顯示錯誤圖片
+            };
+            
+            $('submit-guess').textContent = `提交猜測 (第 ${currentPhotoIndex + 1} 題)`;
+            
+            const buttonsContainer = $('months-old-buttons');
+            buttonsContainer.innerHTML = '';
+            
+            // 重置選中的月齡
+            currentMonthOldGuess = null; 
+
+            // 生成 0M 到 12M 共 13 個按鈕
+            for (let i = 0; i <= 12; i++) { 
+                const button = document.createElement('button');
+                const displayText = i === 0 ? '0M' : `${i}M`;
+                button.type = 'button';
+                button.textContent = displayText;
+                button.id = `month-btn-${i}`;
+                button.className = 'p-3 rounded-xl border-2 font-bold transition duration-150 text-base';
+                button.setAttribute('data-months-old', i);
+                button.addEventListener('click', () => selectMonthOld(i));
+                buttonsContainer.appendChild(button);
+            }
+
+            // 檢查是否有現有猜測 (按序列位置檢查)
+            const currentGuess = playerGuesses[currentPhotoIndex];
+            if (currentGuess && currentGuess.monthsOld !== null) {
+                selectMonthOld(currentGuess.monthsOld); // 重新選中
+                $('submit-guess').disabled = true; // 已提交，禁用提交
+                $('next-photo').classList.remove('hidden'); // 顯示下一張按鈕
+                // 禁用所有按鈕
+                buttonsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            } else {
+                $('submit-guess').disabled = true; // 未選擇時禁用提交
+                $('next-photo').classList.add('hidden'); // 隱藏下一張按鈕
+                // 啟用所有按鈕
+                buttonsContainer.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
+            
+            // 如果結果已公佈，重新渲染玩家視圖以顯示分數
+            if (gameStatus.revealed) {
+                updatePlayerViewAfterReveal();
+            }
+        }
+
+        // 處理猜測提交
+        async function handleGuessSubmission() {
+            // currentMonthOldGuess 可以是 0
+            const monthsOld = currentMonthOldGuess; 
+
+            if (monthsOld === null) {
+                showMessage("請點選月齡按鈕！", 'bg-red-100 text-red-700 border border-red-300');
+                return;
+            }
+
+            $('submit-guess').disabled = true;
+            await submitGuess(currentPhotoIndex, monthsOld, `第 ${currentPhotoIndex + 1} 題的猜測已儲存!`);
+            
+            // 提交成功後，保持提交按鈕禁用，並顯示下一張按鈕
+            $('next-photo').classList.remove('hidden');
+            
+            // 禁用月齡按鈕，防止更改答案
+            document.getElementById('months-old-buttons').querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+
+        // 處理下一張照片
+        function handleNextPhoto() {
+            if (currentPhotoIndex < TOTAL_PHOTOS - 1) {
+                currentPhotoIndex++;
+                renderPlayerView();
+            } else {
+                // 最後一張提交後
+                currentPhotoIndex = TOTAL_PHOTOS;
+                renderPlayerView(); // 顯示完成訊息
+            }
+        }
+
+        // 更新儀表板提交狀態
+        function updateDashboardStatus() {
+            const players = Object.values(dashboardData);
+            const totalPlayers = players.length;
+            const submittedPlayers = players.filter(p => p.completed).length;
+
+            $('total-players').textContent = totalPlayers;
+            $('submitted-count').textContent = submittedPlayers;
+
+            const list = $('submission-status-list');
+            list.innerHTML = '';
+
+            if (totalPlayers === 0) {
+                list.innerHTML = '<li class="text-gray-500 p-2">等待玩家提交數據...</li>';
+                return;
+            }
+
+            // 根據玩家名稱排序
+            players.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+            players.forEach(player => {
+                const displayName = player.name || `玩家-${player.userId.substring(0, 4)}`;
+                const guessedCount = player.guesses ? player.guesses.filter(g => g.monthsOld !== null).length : 0;
+                const statusText = player.completed ? '✅ 已完成' : `...猜測中 (${guessedCount}/${TOTAL_PHOTOS})`;
+                const statusClass = player.completed ? 'bg-green-50 text-green-700 border-green-300' : 'bg-yellow-50 text-yellow-700 border-yellow-300';
+
+                const listItem = document.createElement('li');
+                listItem.className = `p-3 rounded-xl flex justify-between items-center border ${statusClass} shadow-sm`;
+                listItem.innerHTML = `<span>${displayName}</span> <span class="font-semibold">${statusText}</span>`;
+                list.appendChild(listItem);
+            });
+
+            if (gameStatus.revealed) {
+                updateDashboardLeaderboard();
+                renderPhotoAnalysis();
+            }
+        }
+
+        // 計算分數 - 現在會根據玩家的獨特序列進行匹配
+        function calculateScore(playerData) {
+            let score = 0;
+            const answers = gameStatus.answers; // 所有正確答案 (按 ID 順序)
+            const playerSequence = playerData.photoSequence; // 玩家的隨機序列
+            const playerGuesses = playerData.guesses; // 玩家的猜測 (按序列位置)
+
+            if (!playerSequence || playerSequence.length !== TOTAL_PHOTOS || !playerGuesses) return 0;
+
+            for (let seqIndex = 0; seqIndex < TOTAL_PHOTOS; seqIndex++) {
+                const photoId = playerSequence[seqIndex]; // 獲取當前序列位置對應的照片 ID
+                const guess = playerGuesses[seqIndex];     // 獲取玩家在這個序列位置的猜測
+                
+                // 找到這個照片 ID 的正確答案
+                const answer = answers.find(a => a.id === photoId); 
+
+                if (guess && answer) {
+                    const correctAge = answer.monthsOld; // 可能是 0
+                    const guessedAge = guess.monthsOld;  // 可能是 0
+
+                    if (guessedAge === correctAge) {
+                        score += 10; // 完全猜對
+                    } else if (Math.abs(guessedAge - correctAge) === 1) {
+                        score += 3; // 相差一個月
+                    }
+                }
+            }
+            return score;
+        }
+
+        // 更新儀表板排行榜
+        function updateDashboardLeaderboard() {
+            const leaderboard = $('leaderboard-list');
+            leaderboard.innerHTML = '';
+            $('leaderboard-section').classList.remove('hidden');
+
+            const scores = Object.values(dashboardData)
+                .map(player => ({
+                    name: player.name || `玩家-${player.userId.substring(0, 4)}`,
+                    score: calculateScore(player), // 傳入完整的玩家數據
+                    userId: player.userId,
+                    completed: player.completed
+                }))
+                .sort((a, b) => {
+                    // 主要按分數排序
+                    if (b.score !== a.score) return b.score - a.score;
+                    // 次要按是否完成排序 (完成者在前)
+                    if (b.completed !== a.completed) return b.completed ? -1 : 1; // 完成度在前
+                    return a.name.localeCompare(b.name); // 再次要按名稱排序
+                });
+
+            scores.forEach((s, index) => {
+                let rankText = `${index + 1}.`;
+                let rankColor = 'bg-gray-100 border-gray-400';
+                
+                if (index === 0) {
+                    rankText = '🥇';
+                    rankColor = 'bg-yellow-100 border-yellow-500';
+                } else if (index === 1) {
+                    rankText = '🥈';
+                    rankColor = 'bg-gray-200 border-gray-500';
+                } else if (index === 2) {
+                    rankText = '🥉';
+                    rankColor = 'bg-orange-100 border-orange-500';
+                }
+                
+                const listItem = document.createElement('li');
+                listItem.className = `p-4 rounded-xl border-2 ${rankColor} shadow-md flex justify-between items-center transition duration-150 hover:scale-[1.01]`;
+                listItem.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="text-3xl font-extrabold mr-3 w-8 text-center">${rankText}</span>
+                        <div>
+                            <span class="font-bold text-lg theme-blue-text">${s.name}</span>
+                            <span class="block text-xs text-gray-600">(${s.completed ? '已完成' : '未完成'})</span>
+                        </div>
+                    </div>
+                    <span class="text-3xl font-extrabold text-red-600">${s.score} <span class="text-xl">分</span></span>
+                `;
+                leaderboard.appendChild(listItem);
+            });
+        }
+
+        // 渲染每張照片的猜測分佈圖
+        function renderPhotoAnalysis() {
+            const container = $('analysis-charts-container');
+            container.innerHTML = '';
+            
+            const allPlayers = Object.values(dashboardData);
+            const totalGuesses = allPlayers.filter(p => p.completed).length || allPlayers.length || 1; 
+            
+            // 遍歷所有照片 (按 MOCK_PHOTOS 順序，ID 1-13)
+            MOCK_PHOTOS.forEach(photo => {
+                const photoId = photo.id;
+                const correctAnswer = photo.correctMonthsOld;
+                const photoUrl = photo.url;
+                
+                // 1. 統計猜測分佈
+                const guessCounts = {}; 
+                let maxCount = 0;
+                
+                for (let i = 0; i <= 12; i++) { // 循環從 0 到 12
+                    guessCounts[i] = 0;
+                }
+                
+                allPlayers.forEach(player => {
+                    const sequence = player.photoSequence;
+                    const guesses = player.guesses;
+                    
+                    if (sequence && guesses) {
+                        // 找到該照片 ID 在玩家序列中的位置 (seqIndex)
+                        const seqIndex = sequence.findIndex(id => id === photoId);
+                        
+                        if (seqIndex !== -1 && guesses[seqIndex] && guesses[seqIndex].monthsOld !== null) {
+                            const guessedMonth = guesses[seqIndex].monthsOld; // 可能是 0
+                            guessCounts[guessedMonth]++;
+                            if (guessCounts[guessedMonth] > maxCount) {
+                                maxCount = guessCounts[guessedMonth];
+                            }
+                        }
+                    }
+                });
+                
+                // 2. 渲染單張照片的分析卡片
+                const card = document.createElement('div');
+                card.className = 'p-5 border-2 border-green-300 rounded-xl shadow-lg bg-white';
+                
+                // 標題與正確答案
+                const answerDisplay = correctAnswer === 0 ? '0M (剛出生)' : `${correctAnswer}M`;
+                let cardHTML = `
+                    <div class="flex items-center justify-between mb-4 border-b pb-2">
+                        <h4 class="text-xl font-bold theme-blue-text">照片 ID ${photoId} 分析</h4>
+                        <span class="text-2xl font-extrabold text-red-600">
+                            正確答案: ${answerDisplay}
+                        </span>
+                    </div>
+                    <div class="flex flex-col md:flex-row items-start md:space-x-4 mb-4">
+                        <div class="w-full md:w-1/3 mb-4 md:mb-0 aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-md">
+                            <img src="${photoUrl}" alt="Photo ${photoId}" class="w-full h-full object-cover">
+                        </div>
+                        <div class="w-full md:w-2/3">
+                            <p class="text-sm font-semibold mb-2 text-gray-700">猜測分佈圖 (總人數: ${totalGuesses})</p>
+                `;
+                
+                // 3. 渲染條形圖 (從 0M 到 12M)
+                for (let i = 0; i <= 12; i++) {
+                    const count = guessCounts[i];
+                    // 計算百分比，如果 maxCount 是 0，則防止除以零
+                    const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                    const barWidth = `${percentage}%`;
+                    const barColor = (i === correctAnswer) ? 'bg-green-500' : 'bg-blue-400';
+                    const isCorrectClass = (i === correctAnswer) ? 'font-bold text-red-600' : 'text-gray-700';
+                    const displayText = i === 0 ? '0M' : `${i}M`;
+
+                    cardHTML += `
+                        <div class="flex items-center mb-1 text-sm">
+                            <div class="w-10 ${isCorrectClass}">${displayText}:</div>
+                            <div class="flex-grow ml-2 relative h-6">
+                                <div class="chart-bar-container w-full h-full rounded-full">
+                                    <div style="width: ${barWidth};" 
+                                        class="chart-bar-fill h-full rounded-full ${barColor} flex items-center px-2 shadow-inner">
+                                        <span class="text-white text-xs z-10">${count}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="w-12 text-right text-xs text-gray-500">${percentage.toFixed(0)}%</div>
+                        </div>
+                    `;
+                }
+
+                cardHTML += `
+                        </div>
+                    </div>
+                `;
+                
+                card.innerHTML = cardHTML;
+                container.appendChild(card);
+            });
+        }
+
+        // 主持人公佈結果
+        async function revealGameResults() {
+            if (gameStatus.revealed) return;
+            
+            // 使用 confirm 模擬 custom modal UI 提示
+            if (!confirm("確定要公佈結果嗎？公佈後玩家將能看到最終分數。")) {
+                return;
+            }
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const sessionRef = getPublicDocRef(GAME_ID);
+                    transaction.update(sessionRef, { revealed: true });
+                });
+                console.log("遊戲結果已公佈。");
+            } catch (e) {
+                console.error("公佈結果失敗:", e);
+            }
+        }
+
+        // 結果公佈後，更新玩家介面以顯示分數
+        function updatePlayerViewAfterReveal() {
+            const gameContent = $('game-content');
+            if (gameContent && !gameContent.classList.contains('hidden')) {
+                // 確保玩家名稱和序列已設定
+                if (!playerName || playerSequence.length === 0) {
+                     loadPlayerState(); 
+                }
+                
+                const playerData = { photoSequence: playerSequence, guesses: playerGuesses };
+                const yourScore = calculateScore(playerData);
+                
+                const existingMessage = document.querySelector('#reveal-score-message');
+                
+                // 防止重複添加
+                if (!existingMessage) {
+                     const message = document.createElement('div');
+                    message.id = 'reveal-score-message';
+                    message.className = 'text-center p-6 rounded-xl bg-blue-50 mt-6 shadow-xl border-2 border-blue-300';
+                    message.innerHTML = `
+                        <p class="text-2xl font-bold theme-blue-text mb-2">🎉 遊戲結果已公佈！</p>
+                        <p class="text-3xl font-extrabold text-red-600">您的最終得分: ${yourScore} 分</p>
+                        <p class="mt-3 text-gray-600">請切換到「查看結果儀表板」獲取最終排行榜和照片分析！</p>
+                    `;
+                    // 插入到遊戲內容底部
+                    gameContent.appendChild(message);
+                }
+            }
+        }
+
+        // 啟動應用
+        initFirebase();
+    </script>
+</body>
+</html>
