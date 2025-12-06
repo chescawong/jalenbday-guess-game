@@ -217,29 +217,23 @@
         </div>
     </div>
 
-    <!-- Firebase 模組載入 -->
+   <!-- Firebase 模組載入 -->
     <script type="module">
-        // Import the functions you need from the SDKs you need
-            import { initializeApp } from "firebase/app";
-            import { getAnalytics } from "firebase/analytics";
-    // TODO: Add SDKs for Firebase products that you want to use
-    // https://firebase.google.com/docs/web/setup#available-libraries
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, runTransaction, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        // ---------------------------------------------------------------------------------
+        // 🚨🚨🚨 請務必將以下 firebaseConfig 替換為您自己的 Firebase 專案配置！ 🚨🚨🚨
+        // ---------------------------------------------------------------------------------
         const firebaseConfig = {
-      apiKey: "AIzaSyANe0qEK8HGBjKamRnNTEIwlpGxNXGwdM0",
-      authDomain: "jalen-bday-game.firebaseapp.com",
-      projectId: "jalen-bday-game",
-      storageBucket: "jalen-bday-game.firebasestorage.app",
-      messagingSenderId: "23685383150",
-      appId: "1:23685383150:web:abb676397bd43c4378c4ff",
-      measurementId: "G-LJDHKDGJ1M"
-    };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+            apiKey: "AIzaSyANe0qEK8HGBjKamRnNTEIwlpGxNXGwdM0",
+            authDomain: "jalen-bday-game.firebaseapp.com",
+            projectId: "jalen-bday-game",
+            storageBucket: "jalen-bday-game.firebasestorage.app",
+            messagingSenderId: "23685383150",
+            appId: "1:23685383150:web:abb676397bd43c4378c4ff" // App ID, 不是 Project ID
+        };
         // ---------------------------------------------------------------------------------
         
         const appId = firebaseConfig.projectId; // 在 GitHub Pages 環境下，使用 Project ID 作為 app ID
