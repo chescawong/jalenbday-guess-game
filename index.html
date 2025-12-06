@@ -232,7 +232,8 @@
             projectId: "jalen-bday-game",
             storageBucket: "jalen-bday-game.firebasestorage.app",
             messagingSenderId: "23685383150",
-            appId: "1:23685383150:web:abb676397bd43c4378c4ff" // App ID, 不是 Project ID
+            appId: "1:23685383150:web:abb676397bd43c4378c4ff",
+            measurementId: "G-LJDHKDGJ1M"// App ID, 不是 Project ID
         };
         // ---------------------------------------------------------------------------------
         
@@ -299,7 +300,7 @@
 
         async function initFirebase() {
             // 檢查配置是否已被替換
-            if (firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
+            if (firebaseConfig.apiKey === "AIzaSyANe0qEK8HGBjKamRnNTEIwlpGxNXGwdM0") {
                 $('loading').textContent = "🚨 Firebase 配置錯誤：請替換程式碼中的佔位符。";
                 return;
             }
